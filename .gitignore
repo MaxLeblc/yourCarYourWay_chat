@@ -1,0 +1,19 @@
+# Env & variables
+.env
+.eenv.local
+
+# Java artifacts
+target/
+*.jar
+*.war
+.flattened-pom.xml
+
+# Node Angular Artifacts
+node_modules/
+dist/
+.angular/
+npm-debug-log*
+
+# IDE
+.idea/
+
