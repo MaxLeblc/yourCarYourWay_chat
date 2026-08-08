@@ -1,6 +1,6 @@
 # Env & variables
 .env
-.eenv.local
+.env.local
 
 # Java artifacts
 target/
