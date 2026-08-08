@@ -1,0 +1,76 @@
+<div class="chat-wrapper">
+  <!-- LOGIN SCREEN -->
+  @if (!isJoined) {
+    <div class="login-card">
+      <div class="login-header">
+        <h2>Your Car Your Way</h2>
+        <p>Real-Time Customer Support (PoC)</p>
+      </div>
+      <div class="login-form">
+        <label for="username">Enter your name / role:</label>
+        <input
+          id="username"
+          type="text"
+          [(ngModel)]="username"
+          placeholder="e.g. Client John or Agent Sarah"
+          (keyup.enter)="joinChat()"
+        />
+        <button (click)="joinChat()" [disabled]="!username.trim()">
+          Join Chat
+        </button>
+      </div>
+    </div>
+  } @else {
+    <!-- LIVE CHAT INTERFACE -->
+    <div class="chat-container">
+      <header class="chat-header">
+        <div class="user-info">
+          <h3>💬 Live Customer Support</h3>
+          <span class="username-badge">Connected as: <strong>{{ username }}</strong></span>
+        </div>
+        <div class="status-indicator">
+          <span class="dot" [class.connected]="isConnected$ | async"></span>
+          <span class="status-text">{{ (isConnected$ | async) ? 'Online' : 'Connecting...' }}</span>
+        </div>
+      </header>
+
+      <main class="chat-messages">
+        @for (msg of (messages$ | async); track $index) {
+          <div class="message-row">
+            <!-- System message JOIN / LEAVE -->
+            @if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
+              <div class="system-message">
+                <span>{{ msg.sender }} joined the chat</span>
+              </div>
+            }
+
+            <!-- User message -->
+            @if (msg.type === 'CHAT') {
+              <div class="message-bubble" [class.own-message]="msg.sender === username">
+                <div class="message-sender">{{ msg.sender }}</div>
+                <div class="message-content">{{ msg.content }}</div>
+                @if (msg.timestamp) {
+                  <div class="message-time">
+                    {{ msg.timestamp | date:'HH:mm' }}
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </main>
+
+      <footer class="chat-footer">
+        <input
+          type="text"
+          [(ngModel)]="messageInput"
+          placeholder="Type your message here..."
+          (keyup.enter)="sendMessage()"
+        />
+        <button (click)="sendMessage()" [disabled]="!messageInput.trim()">
+          Send
+        </button>
+      </footer>
+    </div>
+  }
+</div>
