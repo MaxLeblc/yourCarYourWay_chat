@@ -17,6 +17,8 @@ public class ChatService {
     public ChatMessage saveMessage(ChatMessage chatMessage) {
         ChatMessageEntity entity = ChatMessageEntity.builder()
                 .sender(chatMessage.getSender())
+                .userId(chatMessage.getUserId())
+                .supportTicketId(chatMessage.getSupportTicketId())
                 .content(chatMessage.getContent())
                 .type(chatMessage.getType())
                 .timestamp(chatMessage.getTimestamp())
@@ -30,6 +32,8 @@ public class ChatService {
         return chatMessageRepository.findTop50ByOrderByTimestampAsc().stream()
                 .map(entity -> ChatMessage.builder()
                         .sender(entity.getSender())
+                        .userId(entity.getUserId())
+                        .supportTicketId(entity.getSupportTicketId())
                         .content(entity.getContent())
                         .type(entity.getType())
                         .timestamp(entity.getTimestamp())
