@@ -21,6 +21,10 @@ public class ChatMessageEntity {
     @Column(nullable = false)
     private String sender;
 
+    private Long userId;
+
+    private Long supportTicketId;
+
     @Column(columnDefinition = "TEXT")
     private String content;
 

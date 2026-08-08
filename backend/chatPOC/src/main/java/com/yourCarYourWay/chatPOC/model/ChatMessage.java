@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 public class ChatMessage {
 
     private String sender;
+    private Long userId;
+    private Long supportTicketId;
     private String content;
     private MessageType type;
     private LocalDateTime timestamp;
