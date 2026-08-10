@@ -1,76 +1,212 @@
-<div class="chat-wrapper">
-  <!-- LOGIN SCREEN -->
-  @if (!isJoined) {
-    <div class="login-card">
-      <div class="login-header">
-        <h2>Your Car Your Way</h2>
-        <p>Real-Time Customer Support (PoC)</p>
-      </div>
-      <div class="login-form">
-        <label for="username">Enter your name / role:</label>
-        <input
-          id="username"
-          type="text"
-          [(ngModel)]="username"
-          placeholder="e.g. Client John or Agent Sarah"
-          (keyup.enter)="joinChat()"
-        />
-        <button (click)="joinChat()" [disabled]="!username.trim()">
-          Join Chat
-        </button>
-      </div>
+<div class="app-container">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-title">Your Car Your Way</span>
+      <span class="poc-badge">Support Center PoC</span>
     </div>
-  } @else {
-    <!-- LIVE CHAT INTERFACE -->
-    <div class="chat-container">
-      <header class="chat-header">
-        <div class="user-info">
-          <h3>💬 Live Customer Support</h3>
-          <span class="username-badge">Connected as: <strong>{{ username }}</strong></span>
-        </div>
-        <div class="status-indicator">
-          <span class="dot" [class.connected]="isConnected$ | async"></span>
-          <span class="status-text">{{ (isConnected$ | async) ? 'Online' : 'Connecting...' }}</span>
-        </div>
-      </header>
 
-      <main class="chat-messages">
-        @for (msg of (messages$ | async); track $index) {
-          <div class="message-row">
-            <!-- System message JOIN / LEAVE -->
-            @if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
-              <div class="system-message">
-                <span>{{ msg.sender }} joined the chat</span>
+    @if (currentUser) {
+      <div class="user-profile">
+        <div class="user-details">
+          <span class="user-name">{{ currentUser.name }}</span>
+          <span class="role-badge" [class.agent-badge]="currentUser.role === 'ROLE_AGENCY_STAFF'">
+            {{ currentUser.role === 'ROLE_AGENCY_STAFF' ? 'YCYW Agent' : 'Customer' }}
+          </span>
+        </div>
+        <button class="logout-btn" (click)="logout()">Logout</button>
+      </div>
+    }
+  </header>
+
+  <main class="main-content">
+    <!-- Unauthenticated View: Authentic Login / Register Form -->
+    @if (!currentUser) {
+      <div class="login-modal-overlay">
+        <div class="login-card">
+          <h2>YCYW Support Center</h2>
+
+          <!-- Auth Mode Tabs -->
+          <div class="auth-tabs">
+            <button [class.active]="authMode === 'login'" (click)="authMode = 'login'; authError = ''">Log In</button>
+            <button [class.active]="authMode === 'register'" (click)="authMode = 'register'; authError = ''">Create Account</button>
+          </div>
+
+          @if (authError) {
+            <div class="auth-error-banner">{{ authError }}</div>
+          }
+
+          <!-- Login Form -->
+          @if (authMode === 'login') {
+            <form (ngSubmit)="onLogin()" class="auth-form">
+              <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" placeholder="name@domain.com" [(ngModel)]="loginEmail" name="email" required />
               </div>
-            }
+              <div class="form-group">
+                <label>Password</label>
+                <input type="password" placeholder="••••••••" [(ngModel)]="loginPassword" name="password" required />
+              </div>
+              <button type="submit" class="auth-submit-btn">Log In</button>
+            </form>
 
-            <!-- User message -->
-            @if (msg.type === 'CHAT') {
-              <div class="message-bubble" [class.own-message]="msg.sender === username">
-                <div class="message-sender">{{ msg.sender }}</div>
-                <div class="message-content">{{ msg.content }}</div>
-                @if (msg.timestamp) {
-                  <div class="message-time">
-                    {{ msg.timestamp | date:'HH:mm' }}
+            <div class="quick-login-hints">
+              <span>Quick Test Pre-fills:</span>
+              <div class="hint-buttons">
+                <button type="button" (click)="quickFill('client@gmail.com')">Customer (client@gmail.com)</button>
+                <button type="button" (click)="quickFill('agent@ycyw.com')">Agent (agent@ycyw.com)</button>
+              </div>
+            </div>
+          }
+
+          <!-- Register Form -->
+          @if (authMode === 'register') {
+            <form (ngSubmit)="onRegister()" class="auth-form">
+              <div class="form-group">
+                <label>First Name</label>
+                <input type="text" placeholder="John" [(ngModel)]="regFirstName" name="firstName" required />
+              </div>
+              <div class="form-group">
+                <label>Last Name</label>
+                <input type="text" placeholder="Doe" [(ngModel)]="regLastName" name="lastName" required />
+              </div>
+              <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" placeholder="john.doe@gmail.com" [(ngModel)]="regEmail" name="email" required />
+              </div>
+              <div class="form-group">
+                <label>Password (min. 8 chars, 1 uppercase, 1 number)</label>
+                <input type="password" placeholder="••••••••" [(ngModel)]="regPassword" name="password" required />
+              </div>
+              <button type="submit" class="auth-submit-btn">Create Account</button>
+            </form>
+          }
+        </div>
+      </div>
+    } @else {
+      <!-- Authenticated Dashboard -->
+      <div class="dashboard-layout">
+        <!-- Sidebar: Support Tickets -->
+        <aside class="tickets-sidebar">
+          <div class="sidebar-header">
+            <h3>{{ currentUser.role === 'ROLE_AGENCY_STAFF' ? 'Support Inbox' : 'My Support Tickets' }}</h3>
+          </div>
+
+          @if (currentUser.role === 'ROLE_USER') {
+            <div class="create-ticket-section">
+              <input
+                type="text"
+                placeholder="New support inquiry subject..."
+                [(ngModel)]="newTicketSubject"
+                (keyup.enter)="createTicket()"
+              />
+              <button (click)="createTicket()">+ Open Ticket</button>
+            </div>
+          }
+
+          <div class="tickets-list">
+            @for (ticket of tickets; track ticket.id) {
+              <div
+                class="ticket-item"
+                [class.active]="activeTicket?.id === ticket.id"
+                (click)="selectTicket(ticket)"
+              >
+                <div class="ticket-header-row">
+                  <span class="ticket-id">#{{ ticket.id }}</span>
+                  <span
+                    class="ticket-status-pill"
+                    [class.open]="ticket.status === 'OPEN'"
+                    [class.closed]="ticket.status === 'CLOSED'"
+                  >
+                    {{ ticket.status }}
+                  </span>
+                </div>
+                <div class="ticket-subject">{{ ticket.subject }}</div>
+                
+                <div class="ticket-footer-row">
+                  <span class="ticket-author">Author: {{ ticket.userName }}</span>
+                  @if (currentUser.role === 'ROLE_AGENCY_STAFF' && ticket.status === 'CLOSED') {
+                    <button class="delete-ticket-btn" (click)="deleteTicket(ticket.id, $event)" title="Delete ticket">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
+                    </button>
+                  }
+                </div>
+              </div>
+            } @empty {
+              <div class="empty-tickets">No tickets available.</div>
+            }
+          </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <section class="chat-section">
+          @if (activeTicket) {
+            <!-- Ticket Room Header -->
+            <div class="chat-room-header">
+              <div class="room-title-info">
+                <h2>Ticket #{{ activeTicket.id }}: {{ activeTicket.subject }}</h2>
+                <span class="room-meta">Customer: {{ activeTicket.userName }} | Channel: /topic/ticket/{{ activeTicket.id }}</span>
+
+                <!-- Status Manager placed underneath room-meta -->
+                @if (currentUser.role === 'ROLE_AGENCY_STAFF') {
+                  <div class="status-manager">
+                    <label>Status:</label>
+                    <button class="status-btn btn-open" (click)="updateTicketStatus('OPEN')" [disabled]="activeTicket.status === 'OPEN'">OPEN</button>
+                    <button class="status-btn btn-closed" (click)="updateTicketStatus('CLOSED')" [disabled]="activeTicket.status === 'CLOSED'">CLOSE</button>
                   </div>
                 }
               </div>
-            }
-          </div>
-        }
-      </main>
+            </div>
 
-      <footer class="chat-footer">
-        <input
-          type="text"
-          [(ngModel)]="messageInput"
-          placeholder="Type your message here..."
-          (keyup.enter)="sendMessage()"
-        />
-        <button (click)="sendMessage()" [disabled]="!messageInput.trim()">
-          Send
-        </button>
-      </footer>
-    </div>
-  }
+            <!-- Chat Messages Window -->
+            <div class="chat-messages" id="chat-messages-container">
+              @for (msg of messages; track $index) {
+                <div
+                  class="message-wrapper"
+                  [class.outgoing]="msg.userId === currentUser.id"
+                  [class.incoming]="msg.userId !== currentUser.id"
+                >
+                  <div class="message-bubble">
+                    <div class="message-sender">{{ msg.sender }}</div>
+                    <div class="message-content">{{ msg.content }}</div>
+                    <div class="message-timestamp">{{ msg.timestamp | date:'HH:mm' }}</div>
+                  </div>
+                </div>
+              } @empty {
+                <div class="empty-messages">
+                  <span>No messages in this ticket room yet. Type below to start the conversation.</span>
+                </div>
+              }
+            </div>
+
+            <!-- Message Input Bar or Closed Notice -->
+            @if (activeTicket.status === 'CLOSED') {
+              <div class="closed-ticket-notice">
+                This support ticket has been closed by the support agent.
+              </div>
+            } @else {
+              <div class="chat-input-bar">
+                <input
+                  type="text"
+                  placeholder="Type your message..."
+                  [(ngModel)]="messageContent"
+                  (keyup.enter)="sendMessage()"
+                />
+                <button (click)="sendMessage()" [disabled]="!messageContent.trim()">Send</button>
+              </div>
+            }
+          } @else {
+            <div class="no-active-ticket">
+              <span>Select a support ticket from the sidebar to join the chat session.</span>
+            </div>
+          }
+        </section>
+      </div>
+    }
+  </main>
 </div>

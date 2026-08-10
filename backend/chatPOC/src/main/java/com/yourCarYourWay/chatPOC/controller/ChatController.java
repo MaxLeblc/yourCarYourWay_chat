@@ -3,16 +3,12 @@ package com.yourCarYourWay.chatPOC.controller;
 import com.yourCarYourWay.chatPOC.model.ChatMessage;
 import com.yourCarYourWay.chatPOC.service.ChatService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
@@ -20,24 +16,12 @@ import java.util.List;
 public class ChatController {
 
     private final ChatService chatService;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    @MessageMapping("/chat.sendMessage")
-    @SendTo("/topic/public")
-    public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
-        chatMessage.setTimestamp(LocalDateTime.now());
-        return chatService.saveMessage(chatMessage);
-    }
-
-    @MessageMapping("/chat.addUser")
-    @SendTo("/topic/public")
-    public ChatMessage addUser(@Payload ChatMessage chatMessage) {
-        chatMessage.setTimestamp(LocalDateTime.now());
-        return chatMessage;
-    }
-
-    @GetMapping("/api/chat/history")
-    @ResponseBody
-    public List<ChatMessage> getChatHistory() {
-        return chatService.getHistory();
+    @MessageMapping("/chat.sendMessage/{ticketId}")
+    public void sendMessage(@DestinationVariable("ticketId") Long ticketId, @Payload ChatMessage chatMessage) {
+        chatMessage.setSupportTicketId(ticketId);
+        ChatMessage saved = chatService.saveMessage(chatMessage);
+        messagingTemplate.convertAndSend("/topic/ticket/" + ticketId, saved);
     }
 }

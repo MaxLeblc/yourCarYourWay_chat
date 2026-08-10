@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ChatMessage {
-
+    private Long id;
     private String sender;
     private Long userId;
     private Long supportTicketId;
@@ -22,7 +22,6 @@ public class ChatMessage {
 
     public enum MessageType {
         CHAT,
-        JOIN,
-        LEAVE
+        SYSTEM
     }
 }

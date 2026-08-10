@@ -1,7 +1,9 @@
 export interface ChatMessage {
+  id?: number;
   sender: string;
+  userId?: number;
+  supportTicketId?: number;
   content: string;
-  type: 'CHAT' | 'JOIN' | 'LEAVE';
+  type: 'CHAT' | 'SYSTEM';
   timestamp?: string;
 }
-

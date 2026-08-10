@@ -18,15 +18,11 @@ public class ChatMessageEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String sender;
-
-    private Long userId;
-
-    private Long supportTicketId;
-
     @Column(columnDefinition = "TEXT")
     private String content;
+
+    @Column(name = "sender")
+    private String sender;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -34,4 +30,22 @@ public class ChatMessageEntity {
 
     @Column(nullable = false)
     private LocalDateTime timestamp;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "user_id")
+    private UserEntity user;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "support_ticket_id")
+    private SupportTicketEntity supportTicket;
+
+    @PrePersist
+    @PreUpdate
+    public void prePersist() {
+        if (this.sender == null && this.user != null) {
+            this.sender = this.user.getFirstName() + " " + this.user.getLastName();
+        } else if (this.sender == null) {
+            this.sender = "System";
+        }
+    }
 }
