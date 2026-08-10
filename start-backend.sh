@@ -12,6 +12,9 @@ else
   echo "⚠️ Warning: .env file not found at root!"
 fi
 
+# Kill any existing process running on port 8080 to prevent port conflict
+fuser -k 8080/tcp 2>/dev/null || true
+
 echo "🟢 Starting Spring Boot Backend..."
 cd backend/chatPOC
 ./mvnw spring-boot:run

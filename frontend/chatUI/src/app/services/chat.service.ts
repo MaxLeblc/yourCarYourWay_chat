@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Client } from '@stomp/stompjs';
+import { Client, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { ChatMessage } from '../models/chat-message.model';
@@ -10,71 +10,133 @@ import { ChatMessage } from '../models/chat-message.model';
 })
 export class ChatService {
   private stompClient!: Client;
+  private currentSubscription?: StompSubscription;
   private messagesSubject = new BehaviorSubject<ChatMessage[]>([]);
   public messages$: Observable<ChatMessage[]> = this.messagesSubject.asObservable();
 
   private connectionStatusSubject = new BehaviorSubject<boolean>(false);
   public isConnected$: Observable<boolean> = this.connectionStatusSubject.asObservable();
 
+  private activeTicketIdSubject = new BehaviorSubject<number | null>(null);
+  public activeTicketId$: Observable<number | null> = this.activeTicketIdSubject.asObservable();
+
   private backendUrl = 'http://localhost:8080';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private ngZone: NgZone) {}
 
-  public connect(username: string): void {
-    // 1. Fetch chat history from PostgreSQL
-    this.fetchHistory();
+  public connectToTicket(ticketId: number, username: string, userId?: number): void {
+    const isSameTicket = this.activeTicketIdSubject.getValue() === ticketId;
+    this.activeTicketIdSubject.next(ticketId);
 
-    // 2. Initialize WebSocket STOMP connection
-    const socket = new SockJS(`${this.backendUrl}/ws`);
-    this.stompClient = new Client({
-      webSocketFactory: () => socket,
-      debug: (msg: string) => console.log(msg),
-      reconnectDelay: 5000,
-    });
+    // Always fetch history synchronously on ticket selection
+    this.fetchTicketHistory(ticketId);
 
-    this.stompClient.onConnect = () => {
-      this.connectionStatusSubject.next(true);
+    if (isSameTicket && this.stompClient?.connected && this.currentSubscription) {
+      return;
+    }
 
-      // Subscribe to public channel
-      this.stompClient.subscribe('/topic/public', (message) => {
-        const chatMessage: ChatMessage = JSON.parse(message.body);
-        const currentMessages = this.messagesSubject.getValue();
-        this.messagesSubject.next([...currentMessages, chatMessage]);
-      });
+    if (this.currentSubscription) {
+      this.currentSubscription.unsubscribe();
+      this.currentSubscription = undefined;
+    }
 
-      // Send join event
-      this.stompClient.publish({
-        destination: '/app/chat.addUser',
-        body: JSON.stringify({ sender: username, type: 'JOIN' })
-      });
+    const setupSubscription = () => {
+      if (this.stompClient && this.stompClient.connected) {
+        this.subscribeToTicketChannel(ticketId);
+      }
     };
 
-    this.stompClient.onDisconnect = () => {
-      this.connectionStatusSubject.next(false);
-    };
+    if (!this.stompClient || !this.stompClient.active) {
+      const socket = new SockJS(`${this.backendUrl}/ws`);
+      this.stompClient = new Client({
+        webSocketFactory: () => socket,
+        debug: (msg: string) => console.log(msg),
+        reconnectDelay: 5000,
+      });
 
-    this.stompClient.activate();
+      this.stompClient.onConnect = () => {
+        this.ngZone.run(() => {
+          this.connectionStatusSubject.next(true);
+          setupSubscription();
+        });
+      };
+
+      this.stompClient.onDisconnect = () => {
+        this.ngZone.run(() => {
+          this.connectionStatusSubject.next(false);
+        });
+      };
+
+      this.stompClient.activate();
+    } else if (this.stompClient.connected) {
+      setupSubscription();
+    } else {
+      const prevOnConnect = this.stompClient.onConnect;
+      this.stompClient.onConnect = (frame) => {
+        if (prevOnConnect) prevOnConnect(frame);
+        this.ngZone.run(() => setupSubscription());
+      };
+    }
   }
 
-  public sendMessage(sender: string, content: string): void {
+  private subscribeToTicketChannel(ticketId: number): void {
+    if (this.currentSubscription) {
+      this.currentSubscription.unsubscribe();
+    }
+
+    // Subscribe to ticket-specific topic /topic/ticket/{ticketId}
+    this.currentSubscription = this.stompClient.subscribe(`/topic/ticket/${ticketId}`, (message) => {
+      const chatMessage: ChatMessage = JSON.parse(message.body);
+      
+      this.ngZone.run(() => {
+        const currentMessages = this.messagesSubject.getValue();
+        const isDuplicate = currentMessages.some(
+          (m) => m.id && chatMessage.id && m.id === chatMessage.id
+        );
+
+        if (!isDuplicate) {
+          this.messagesSubject.next([...currentMessages, chatMessage]);
+        }
+      });
+    });
+  }
+
+  public sendMessage(ticketId: number, sender: string, userId: number | undefined, content: string): void {
     if (this.stompClient && this.stompClient.connected) {
       const chatMessage: ChatMessage = {
         sender,
+        userId,
+        supportTicketId: ticketId,
         content,
         type: 'CHAT'
       };
       this.stompClient.publish({
-        destination: '/app/chat.sendMessage',
+        destination: `/app/chat.sendMessage/${ticketId}`,
         body: JSON.stringify(chatMessage)
       });
     }
   }
 
-  private fetchHistory(): void {
-    this.http.get<ChatMessage[]>(`${this.backendUrl}/api/chat/history`)
+  public leaveTicket(ticketId: number): void {
+    if (this.currentSubscription) {
+      this.currentSubscription.unsubscribe();
+      this.currentSubscription = undefined;
+    }
+    this.ngZone.run(() => {
+      this.activeTicketIdSubject.next(null);
+      this.messagesSubject.next([]);
+    });
+  }
+
+  public fetchTicketHistory(ticketId: number): void {
+    this.http.get<ChatMessage[]>(`${this.backendUrl}/api/tickets/${ticketId}/history`)
       .subscribe({
-        next: (history) => this.messagesSubject.next(history),
-        error: (err) => console.error('Error fetching chat history', err)
+        next: (history) => {
+          this.ngZone.run(() => {
+            this.messagesSubject.next(history);
+          });
+        },
+        error: (err) => console.error('Error fetching ticket history', err)
       });
   }
 }
