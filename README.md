@@ -166,7 +166,7 @@ yourCarYourWay_chat/
 │       ├── src/main/resources/  # application.yaml & DB configurations
 │       └── src/test/            # JUnit 5 & Mockito test suites (H2 in-memory DB)
 ├── frontend/
-│   └── chatUI/                  # Angular 19 Application
+│   └── chatUI/                  # Angular 22 Application
 │       ├── src/app/             # Chat Component, ChatService (STOMP), Models
 │       └── src/app/app.spec.ts  # Vitest unit test suite
 ├── .env.example                 # Template for database environment variables
