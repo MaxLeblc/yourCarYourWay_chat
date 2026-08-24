@@ -132,7 +132,7 @@ export class AppComponent implements OnInit, OnDestroy {
   public quickFill(email: string): void {
     this.authMode = 'login';
     this.loginEmail = email;
-    this.loginPassword = 'password123';
+    this.loginPassword = 'Password123';
     this.onLogin();
   }
 
@@ -140,6 +140,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.activeTicket && this.currentUser) {
       this.chatService.leaveTicket(this.activeTicket.id);
     }
+    this.chatService.disconnect();
     this.authService.logout();
   }
 
@@ -147,20 +148,34 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!this.currentUser) return;
 
     if (this.currentUser.role === 'ROLE_AGENCY_STAFF') {
-      this.ticketService.getAllTickets().subscribe((data) => {
-        this.tickets = data;
-        if (!this.activeTicket && data.length > 0) {
-          this.selectTicket(data[0]);
+      this.ticketService.getAllTickets().subscribe({
+        next: (data) => {
+          this.tickets = data;
+          if (!this.activeTicket && data.length > 0) {
+            this.selectTicket(data[0]);
+          }
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          if (err.status === 401 || err.status === 403) {
+            this.logout();
+          }
         }
-        this.cdr.detectChanges();
       });
     } else {
-      this.ticketService.getTicketsForUser(this.currentUser.id).subscribe((data) => {
-        this.tickets = data;
-        if (!this.activeTicket && data.length > 0) {
-          this.selectTicket(data[0]);
+      this.ticketService.getTicketsForUser(this.currentUser.id).subscribe({
+        next: (data) => {
+          this.tickets = data;
+          if (!this.activeTicket && data.length > 0) {
+            this.selectTicket(data[0]);
+          }
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          if (err.status === 401 || err.status === 403) {
+            this.logout();
+          }
         }
-        this.cdr.detectChanges();
       });
     }
   }

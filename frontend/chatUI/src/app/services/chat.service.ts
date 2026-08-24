@@ -48,8 +48,11 @@ export class ChatService {
 
     if (!this.stompClient || !this.stompClient.active) {
       const socket = new SockJS(`${this.backendUrl}/ws`);
+      const token = localStorage.getItem('ycyw_token');
+
       this.stompClient = new Client({
         webSocketFactory: () => socket,
+        connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
         debug: (msg: string) => console.log(msg),
         reconnectDelay: 5000,
       });
@@ -65,6 +68,10 @@ export class ChatService {
         this.ngZone.run(() => {
           this.connectionStatusSubject.next(false);
         });
+      };
+
+      this.stompClient.onStompError = (frame) => {
+        console.error('[STOMP Security Error]', frame.headers['message'], frame.body);
       };
 
       this.stompClient.activate();
@@ -125,6 +132,21 @@ export class ChatService {
     this.ngZone.run(() => {
       this.activeTicketIdSubject.next(null);
       this.messagesSubject.next([]);
+    });
+  }
+
+  public disconnect(): void {
+    if (this.currentSubscription) {
+      this.currentSubscription.unsubscribe();
+      this.currentSubscription = undefined;
+    }
+    if (this.stompClient && this.stompClient.active) {
+      this.stompClient.deactivate();
+    }
+    this.ngZone.run(() => {
+      this.activeTicketIdSubject.next(null);
+      this.messagesSubject.next([]);
+      this.connectionStatusSubject.next(false);
     });
   }
 
