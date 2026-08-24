@@ -5,8 +5,11 @@ import com.yourCarYourWay.chatPOC.dto.AuthResponse;
 import com.yourCarYourWay.chatPOC.entity.UserEntity;
 import com.yourCarYourWay.chatPOC.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -17,12 +20,20 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
-        return ResponseEntity.ok(authService.login(request));
+    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
+        try {
+            return ResponseEntity.ok(authService.login(request));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
+        }
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody UserEntity user) {
-        return ResponseEntity.ok(authService.register(user));
+    public ResponseEntity<?> register(@RequestBody UserEntity user) {
+        try {
+            return ResponseEntity.ok(authService.register(user));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
+        }
     }
 }
