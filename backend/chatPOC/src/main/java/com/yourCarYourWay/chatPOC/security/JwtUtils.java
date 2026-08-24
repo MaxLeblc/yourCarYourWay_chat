@@ -35,6 +35,24 @@ public class JwtUtils {
         return getClaims(token).getSubject();
     }
 
+    public Long getUserIdFromToken(String token) {
+        Object userId = getClaims(token).get("userId");
+        if (userId instanceof Number number) {
+            return number.longValue();
+        }
+        return null;
+    }
+
+    public String getRoleFromToken(String token) {
+        Object role = getClaims(token).get("role");
+        return role != null ? role.toString() : null;
+    }
+
+    public String getNameFromToken(String token) {
+        Object name = getClaims(token).get("name");
+        return name != null ? name.toString() : null;
+    }
+
     public Claims getClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
